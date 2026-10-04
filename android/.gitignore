@@ -1,0 +1,17 @@
+*.keystore
+*.jks
+*.p12
+*.key
+*.pem
+signing.properties
+signing_credentials*
+local.properties
+.gradle/
+build/
+app/build/
+*.apk
+*.aab
+.idea/
+*.iml
+.DS_Store
+Captures/

@@ -1,0 +1,119 @@
+# ==============================================================================
+# Pantone Fixed Asset Management System - Production Docker Compose
+# Architecture:
+#   [Internet] -> [HTTPS 443 Nginx Reverse Proxy]
+#                   |-> /api/v1/ -> [Backend API (Internal 5000)] -> [PostgreSQL (Private)]
+#                   \-> /        -> [Frontend Next.js (Internal 3000)]
+# ==============================================================================
+
+version: "3.9"
+
+services:
+  # 1. Reverse Proxy (TLS Termination, HTTP->HTTPS redirect, routing)
+  reverse-proxy:
+    image: nginx:1.25-alpine
+    container_name: pantone-reverse-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/certbot:/var/www/certbot
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    networks:
+      - pantone-net
+
+  # 2. Backend Enterprise API Service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pantone-backend-api
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - HOST=0.0.0.0
+      - PORT=5000
+      - API_PREFIX=/api/v1
+      - TRUST_PROXY=true
+      - STORAGE_PATH=/var/data/pantone/uploads
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=${DB_USER:-pantone_prod_user}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME:-pantone_fam}
+      - DB_SSL=false
+      - DB_POOL_MIN=4
+      - DB_POOL_MAX=25
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=15m
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - JWT_REFRESH_EXPIRES_IN=7d
+      - CORS_ORIGIN=https://fam.pantone.com
+    volumes:
+      - pantone_uploads:/var/data/pantone/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - pantone-net
+    expose:
+      - "5000"
+    # Important: Port 5000 is NOT mapped to the host, keeping it internal
+
+  # 3. Frontend Web Application (Next.js)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: pantone-frontend-web
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=/api/v1
+      - INTERNAL_BACKEND_URL=http://backend:5000/api/v1
+    networks:
+      - pantone-net
+    expose:
+      - "3000"
+    # Important: Port 3000 is NOT mapped to the host, keeping it internal
+
+  # 4. PostgreSQL Database (Strictly Private)
+  postgres:
+    image: postgres:18-alpine
+    container_name: pantone-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${DB_USER:-pantone_prod_user}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME:-pantone_fam}
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - pantone_db_data:/var/lib/postgresql/data
+      - ./backend/src/database/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-pantone_prod_user} -d ${DB_NAME:-pantone_fam}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pantone-net
+    # Critical Security Requirement: Port 5432 is NEVER published to host!
+
+volumes:
+  pantone_db_data:
+    name: pantone_production_pgdata
+  pantone_uploads:
+    name: pantone_production_uploads
+
+networks:
+  pantone-net:
+    name: pantone_internal_network
+    driver: bridge

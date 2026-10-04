@@ -1,0 +1,35 @@
+<resources>
+    <string name="app_name">Pantone FAM</string>
+    <string name="app_full_name">Pantone Fixed Asset Management</string>
+
+    <!-- Navigation -->
+    <string name="nav_home">Home</string>
+    <string name="nav_assets">Assets</string>
+    <string name="nav_scan">Scan</string>
+    <string name="nav_tasks">Tasks</string>
+    <string name="nav_notifications">Alerts</string>
+
+    <!-- Auth -->
+    <string name="login_title">Enterprise Sign In</string>
+    <string name="login_subtitle">Pantone Fixed Asset Management System</string>
+    <string name="username_hint">Username</string>
+    <string name="password_hint">Password</string>
+    <string name="sign_in_button">Sign In</string>
+    <string name="signing_in">Authenticating…</string>
+    <string name="logout">Sign Out</string>
+    <string name="logout_confirm">Are you sure you want to sign out?</string>
+
+    <!-- Scanner -->
+    <string name="scan_title">Optical Scanner</string>
+    <string name="scan_instructions">Align asset QR code or Code 128 barcode within viewfinder</string>
+    <string name="camera_permission_required">Camera permission is required to scan asset tags and barcodes.</string>
+    <string name="grant_permission">Grant Permission</string>
+    <string name="enter_manually">Enter Code Manually</string>
+
+    <!-- Status Messages -->
+    <string name="loading">Loading data…</string>
+    <string name="offline_warning">No internet connection. Operating in read-only mode.</string>
+    <string name="retry">Retry</string>
+    <string name="cancel">Cancel</string>
+    <string name="confirm">Confirm</string>
+</resources>

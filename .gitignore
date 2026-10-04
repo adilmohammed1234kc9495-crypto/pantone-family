@@ -1,0 +1,47 @@
+# ==============================================================================
+# Pantone FAM - Root .gitignore
+# ==============================================================================
+
+# Keystores & Signing Credentials
+*.keystore
+*.jks
+*.p12
+*.key
+*.pem
+signing.properties
+signing_credentials*
+local.properties
+
+# Environment Files & Production Secrets
+.env
+*.env
+.env.*
+!.env.example
+!.env.production.template
+backend/.env
+backend/.env.development
+backend/.env.staging
+frontend/.env.production
+frontend/.env.local
+frontend/.env.*.local
+
+# Ephemeral File Uploads & Local Assets
+uploads/
+/uploads/
+var/
+*.tmp
+
+# Build Artifacts & Dependencies
+node_modules/
+.next/
+dist/
+build/
+coverage/
+.gradle/
+.idea/
+*.log
+*.tsbuildinfo
+
+# Mobile Binaries
+*.apk
+*.aab
