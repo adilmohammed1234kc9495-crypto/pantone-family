@@ -1,0 +1,42 @@
+# ==============================================================================
+# Pantone FAM - Backend .dockerignore
+# Excludes development files, local credentials, logs, and build artifacts
+# ==============================================================================
+
+# Local environment & secrets
+.env
+.env.*
+*.env
+!.env.example
+!.env.production.template
+
+# Keystores & credentials
+*.keystore
+*.jks
+*.p12
+*.key
+*.pem
+signing.properties
+local.properties
+
+# Dependencies & build outputs
+node_modules
+dist
+build
+coverage
+*.log
+*.tsbuildinfo
+
+# Version control
+.git
+.gitignore
+
+# Tests (not needed in production image)
+tests
+
+# Temporary files & uploads
+uploads
+var
+*.tmp
+.DS_Store
+Thumbs.db

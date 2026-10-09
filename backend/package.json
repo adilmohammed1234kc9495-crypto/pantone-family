@@ -2,10 +2,10 @@
   "name": "pantone-fam-backend",
   "version": "1.0.0",
   "description": "Pantone Fixed Asset Management System - Enterprise Backend API",
-  "main": "dist/server.js",
+  "main": "dist/src/server.js",
   "scripts": {
-    "build": "tsc",
-    "start": "node dist/server.js",
+    "build": "tsc && node -e \"require('fs').cpSync('src/database/migrations', 'dist/src/database/migrations', {recursive: true})\"",
+    "start": "node dist/src/server.js",
     "dev": "ts-node src/server.ts",
     "migrate": "ts-node src/database/migrator.ts",
     "seed": "ts-node src/database/seed.ts",

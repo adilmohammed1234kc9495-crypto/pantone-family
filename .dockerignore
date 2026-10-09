@@ -1,0 +1,64 @@
+# ==============================================================================
+# Pantone FAM - Root .dockerignore
+# Excludes mobile, frontend, local credentials, logs, and build artifacts
+# ==============================================================================
+
+# Local environment & secrets
+.env
+.env.*
+*.env
+!.env.example
+!.env.production.template
+backend/.env
+backend/.env.*
+frontend/.env
+frontend/.env.*
+
+# Keystores & credentials
+*.keystore
+*.jks
+*.p12
+*.key
+*.pem
+signing.properties
+local.properties
+
+# Dependencies & build outputs
+node_modules
+*/node_modules
+dist
+*/dist
+build
+*/build
+coverage
+*/coverage
+.next
+*/.next
+*.log
+*.tsbuildinfo
+
+# Subprojects not needed for backend image
+android
+frontend
+nginx
+scratch
+scripts
+
+# Version control
+.git
+.gitignore
+
+# Tests
+backend/tests
+tests
+
+# Ephemeral uploads & binaries
+uploads
+*/uploads
+var
+*/var
+*.apk
+*.aab
+*.tmp
+.DS_Store
+Thumbs.db
