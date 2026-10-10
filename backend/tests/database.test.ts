@@ -1,4 +1,4 @@
-import { pool, query, testConnection } from "../src/config/database";
+import { pool, query, testConnection, parseDatabaseUrl } from "../src/config/database";
 
 describe("Phase 1: Database Connection & Schema Verification", () => {
   afterAll(async () => {
@@ -112,5 +112,26 @@ describe("Phase 1: Database Connection & Schema Verification", () => {
     `);
     expect(garmentsAdminRes.rows.length).toBe(1);
     expect(garmentsAdminRes.rows[0].company_code).toBe("PANTONE-GAR");
+  });
+
+  // Test 8: Robust DATABASE_URL parsing
+  test("8. parseDatabaseUrl handles complex passwords, quotes, and cloud parameters", () => {
+    const complex = parseDatabaseUrl("postgresql://postgres:PantoneAdmin#2026!@aws-0.pooler.supabase.com:6543/postgres");
+    expect(complex).toEqual({
+      user: "postgres",
+      password: "PantoneAdmin#2026!",
+      host: "aws-0.pooler.supabase.com",
+      port: 6543,
+      database: "postgres",
+      ssl: undefined,
+    });
+
+    const quoted = parseDatabaseUrl("'\"postgresql://app_user:p@ss:word#99@db.neon.tech:5432/pantone_db?sslmode=require\"'");
+    expect(quoted?.user).toBe("app_user");
+    expect(quoted?.password).toBe("p@ss:word#99");
+    expect(quoted?.host).toBe("db.neon.tech");
+    expect(quoted?.port).toBe(5432);
+    expect(quoted?.database).toBe("pantone_db");
+    expect(quoted?.ssl).toBe(true);
   });
 });

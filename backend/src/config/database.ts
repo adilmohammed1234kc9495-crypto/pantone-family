@@ -2,17 +2,96 @@ import { Pool, PoolClient, QueryResult, QueryResultRow } from "pg";
 import { env } from "./env";
 import { logger } from "./logger";
 
-function shouldEnableSsl(): boolean {
-  if (env.DB_SSL) return true;
-  if (env.DATABASE_URL) {
-    if (env.DATABASE_URL.includes("sslmode=require") || env.DATABASE_URL.includes("ssl=true")) {
-      return true;
-    }
-    if (env.NODE_ENV === "production" && !env.DATABASE_URL.includes("localhost") && !env.DATABASE_URL.includes("127.0.0.1")) {
-      return true;
+export interface ParsedDatabaseConfig {
+  host?: string;
+  port?: number;
+  user?: string;
+  password?: string;
+  database?: string;
+  ssl?: boolean;
+}
+
+export function parseDatabaseUrl(raw?: string): ParsedDatabaseConfig | null {
+  if (!raw) return null;
+  let str = raw.trim();
+
+  // Strip enclosing quotes if user pasted with quotes
+  while ((str.startsWith('"') && str.endsWith('"')) || (str.startsWith("'") && str.endsWith("'"))) {
+    str = str.slice(1, -1).trim();
+  }
+
+  // Strip 'psql ' prefix if user copied from terminal
+  if (str.startsWith("psql ")) {
+    str = str.replace(/^psql\s+/, "").trim();
+  }
+
+  // Remove scheme
+  let withoutScheme = str;
+  if (withoutScheme.startsWith("postgresql://")) {
+    withoutScheme = withoutScheme.slice("postgresql://".length);
+  } else if (withoutScheme.startsWith("postgres://")) {
+    withoutScheme = withoutScheme.slice("postgres://".length);
+  }
+
+  let user: string | undefined;
+  let password: string | undefined;
+  let rest = withoutScheme;
+
+  const atIndex = withoutScheme.lastIndexOf("@");
+  if (atIndex !== -1) {
+    const userInfo = withoutScheme.slice(0, atIndex);
+    rest = withoutScheme.slice(atIndex + 1);
+
+    const colonIndex = userInfo.indexOf(":");
+    if (colonIndex !== -1) {
+      user = userInfo.slice(0, colonIndex);
+      password = userInfo.slice(colonIndex + 1);
+    } else {
+      user = userInfo;
     }
   }
-  return false;
+
+  // Split query params if any
+  let query = "";
+  const queryIndex = rest.indexOf("?");
+  if (queryIndex !== -1) {
+    query = rest.slice(queryIndex + 1);
+    rest = rest.slice(0, queryIndex);
+  }
+
+  // Split path (database name)
+  let database: string | undefined;
+  const slashIndex = rest.indexOf("/");
+  if (slashIndex !== -1) {
+    database = rest.slice(slashIndex + 1);
+    rest = rest.slice(0, slashIndex);
+  }
+
+  // Split host and port
+  let host = rest;
+  let port: number | undefined;
+  const portColonIndex = rest.lastIndexOf(":");
+  if (portColonIndex !== -1) {
+    const potentialPort = rest.slice(portColonIndex + 1);
+    if (/^\d+$/.test(potentialPort)) {
+      port = parseInt(potentialPort, 10);
+      host = rest.slice(0, portColonIndex);
+    }
+  }
+
+  const hasSslQuery =
+    query.includes("sslmode=require") ||
+    query.includes("ssl=true") ||
+    query.includes("sslmode=no-verify");
+
+  return {
+    user: user ? decodeURIComponent(user) : undefined,
+    password: password ? decodeURIComponent(password) : undefined,
+    host: host ? decodeURIComponent(host) : undefined,
+    port: port || undefined,
+    database: database ? decodeURIComponent(database) : undefined,
+    ssl: hasSslQuery || undefined,
+  };
 }
 
 function createPool(): Pool {
@@ -20,15 +99,37 @@ function createPool(): Pool {
     logger.warn("DATABASE_URL is not set in environment variables! Defaulting to local database host 127.0.0.1:5433. In cloud production (Render), configure DATABASE_URL in your service dashboard settings.");
   }
 
-  const useSsl = shouldEnableSsl();
+  const parsed = parseDatabaseUrl(env.DATABASE_URL);
+
+  const host = parsed?.host || env.DB_HOST;
+  const port = parsed?.port || env.DB_PORT;
+  const user = parsed?.user || env.DB_USER;
+  const password = parsed?.password !== undefined ? parsed.password : env.DB_PASSWORD;
+  const database = parsed?.database || env.DB_NAME;
+
+  // Determine SSL
+  let useSsl = env.DB_SSL;
+  if (!useSsl && parsed?.ssl) {
+    useSsl = true;
+  }
+  if (!useSsl && env.NODE_ENV === "production" && host && !host.includes("localhost") && !host.includes("127.0.0.1")) {
+    useSsl = true;
+  }
+
+  logger.info("Initializing PostgreSQL pool", {
+    host,
+    port,
+    database,
+    user,
+    ssl: useSsl
+  });
 
   const p = new Pool({
-    connectionString: env.DATABASE_URL || undefined,
-    host: env.DATABASE_URL ? undefined : env.DB_HOST,
-    port: env.DATABASE_URL ? undefined : env.DB_PORT,
-    user: env.DATABASE_URL ? undefined : env.DB_USER,
-    password: env.DATABASE_URL ? undefined : env.DB_PASSWORD,
-    database: env.DATABASE_URL ? undefined : env.DB_NAME,
+    host,
+    port,
+    user,
+    password,
+    database,
     ssl: useSsl ? { rejectUnauthorized: false } : undefined,
     min: env.DB_POOL_MIN,
     max: env.DB_POOL_MAX,
