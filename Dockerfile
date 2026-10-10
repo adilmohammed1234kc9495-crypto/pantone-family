@@ -1,7 +1,7 @@
 # ==============================================================================
-# Pantone Fixed Asset Management System - Production Backend Dockerfile (Root Context)
+# Pantone Fixed Asset Management System - Production Backend Dockerfile
 # Multi-stage build for minimal image size and secure non-root execution
-# Build context: repository root (when Root Directory is blank or '.' in Render)
+# Build context: repository root
 # ==============================================================================
 
 # Stage 1: Build & Compile TypeScript
@@ -9,7 +9,7 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install build dependencies using backend package files
+# Install build dependencies using backend package manifests
 COPY backend/package*.json ./
 RUN npm ci
 
@@ -43,6 +43,7 @@ RUN mkdir -p /var/data/pantone/uploads && chown -R pantone:pantone /var/data/pan
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/src/database/migrations ./src/database/migrations
 
 # Switch to unprivileged user
 USER pantone
@@ -52,6 +53,6 @@ EXPOSE 5000 10000
 
 # Healthcheck probe using internal endpoint and dynamically assigned port
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget --quiet --tries=1 --spider http://127.0.0.1:${PORT:-5000}/health/ready || exit 1
+  CMD wget --quiet --tries=1 --spider http://127.0.0.1:${PORT:-5000}/health || exit 1
 
 CMD ["node", "dist/src/server.js"]
