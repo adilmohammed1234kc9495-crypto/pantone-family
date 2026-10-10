@@ -2,7 +2,26 @@ import { Pool, PoolClient, QueryResult, QueryResultRow } from "pg";
 import { env } from "./env";
 import { logger } from "./logger";
 
+function shouldEnableSsl(): boolean {
+  if (env.DB_SSL) return true;
+  if (env.DATABASE_URL) {
+    if (env.DATABASE_URL.includes("sslmode=require") || env.DATABASE_URL.includes("ssl=true")) {
+      return true;
+    }
+    if (env.NODE_ENV === "production" && !env.DATABASE_URL.includes("localhost") && !env.DATABASE_URL.includes("127.0.0.1")) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function createPool(): Pool {
+  if (!env.DATABASE_URL && env.NODE_ENV === "production") {
+    logger.warn("DATABASE_URL is not set in environment variables! Defaulting to local database host 127.0.0.1:5433. In cloud production (Render), configure DATABASE_URL in your service dashboard settings.");
+  }
+
+  const useSsl = shouldEnableSsl();
+
   const p = new Pool({
     connectionString: env.DATABASE_URL || undefined,
     host: env.DATABASE_URL ? undefined : env.DB_HOST,
@@ -10,11 +29,11 @@ function createPool(): Pool {
     user: env.DATABASE_URL ? undefined : env.DB_USER,
     password: env.DATABASE_URL ? undefined : env.DB_PASSWORD,
     database: env.DATABASE_URL ? undefined : env.DB_NAME,
-    ssl: env.DB_SSL ? { rejectUnauthorized: false } : undefined,
+    ssl: useSsl ? { rejectUnauthorized: false } : undefined,
     min: env.DB_POOL_MIN,
     max: env.DB_POOL_MAX,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 5000
+    connectionTimeoutMillis: 10000
   });
 
   p.on("error", (err) => {

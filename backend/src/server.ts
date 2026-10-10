@@ -2,12 +2,28 @@ import { createApp } from "./app";
 import { env } from "./config/env";
 import { logger } from "./config/logger";
 import { testConnection, pool } from "./config/database";
+import { runMigrations } from "./database/migrator";
 
 async function bootstrap() {
+  if (!env.DATABASE_URL && env.NODE_ENV === "production") {
+    logger.error("FATAL: DATABASE_URL environment variable is not configured. Please set DATABASE_URL in your Render dashboard under Environment variables.");
+  }
+
   const isDbReady = await testConnection();
   if (!isDbReady) {
     logger.error("FATAL: Could not connect to PostgreSQL. Halting startup.");
     process.exit(1);
+  }
+
+  // Ensure database schema migrations are applied on production startup
+  if (env.NODE_ENV === "production") {
+    try {
+      logger.info("Verifying and applying database migrations...");
+      await runMigrations();
+      logger.info("Database migrations verified and up to date.");
+    } catch (migErr) {
+      logger.error("Database migration error during startup", { error: (migErr as Error).message });
+    }
   }
 
   const app = createApp();
