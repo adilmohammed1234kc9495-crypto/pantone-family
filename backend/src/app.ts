@@ -116,6 +116,16 @@ export function createApp(): Express {
     }, "Service is ready to handle traffic");
   };
 
+  // Root endpoint for platform health probes (Render default HEAD / and GET / check)
+  app.all("/", (_req: Request, res: Response) => {
+    res.status(200).json({
+      status: "UP",
+      service: "Pantone Fixed Asset Management System API",
+      environment: env.NODE_ENV,
+      version: "1.0.0"
+    });
+  });
+
   app.get("/health", handleLiveness);
   app.get("/health/live", handleLiveness);
   app.get("/health/ready", handleReadiness);
