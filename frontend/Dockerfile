@@ -18,6 +18,7 @@ COPY . .
 # Set production API URL environment variable for build time
 ENV NEXT_PUBLIC_API_URL=/api/v1
 ENV NODE_ENV=production
+ENV STANDALONE=true
 
 RUN npm run build
 

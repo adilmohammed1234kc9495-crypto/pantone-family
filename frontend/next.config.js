@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  output: "standalone",
+  ...(process.env.STANDALONE === "true" ? { output: "standalone" } : {}),
   async rewrites() {
     const rawBackend = process.env.INTERNAL_BACKEND_URL || "https://pantone-family.onrender.com";
     const baseBackend = rawBackend.replace(/\/api\/v1\/?$/, "").replace(/\/$/, "");
