@@ -3,7 +3,7 @@ const nextConfig = {
   reactStrictMode: true,
   output: "standalone",
   async rewrites() {
-    const rawBackend = process.env.INTERNAL_BACKEND_URL || "http://127.0.0.1:5000";
+    const rawBackend = process.env.INTERNAL_BACKEND_URL || "https://pantone-family.onrender.com";
     const baseBackend = rawBackend.replace(/\/api\/v1\/?$/, "").replace(/\/$/, "");
     return [
       {
