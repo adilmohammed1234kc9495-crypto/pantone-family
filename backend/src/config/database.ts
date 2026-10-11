@@ -116,6 +116,10 @@ function createPool(): Pool {
     useSsl = true;
   }
 
+  if (user?.includes("YOUR_PROJECT_REF") || user?.includes("[") || host?.includes("YOUR_")) {
+    logger.error("CONFIGURATION ERROR: 'YOUR_PROJECT_REF' is a placeholder! In your Render Environment settings, replace 'YOUR_PROJECT_REF' with your actual Supabase project reference ID (found in your Supabase project URL or Project Settings -> General -> Reference ID).");
+  }
+
   logger.info("Initializing PostgreSQL pool", {
     host,
     port,
@@ -192,7 +196,13 @@ export async function testConnection(): Promise<boolean> {
     });
     return true;
   } catch (error) {
-    logger.error("Failed to connect to PostgreSQL", { error });
+    const err = error as Error & { code?: string; detail?: string; hint?: string };
+    logger.error("Failed to connect to PostgreSQL", {
+      message: err.message,
+      code: err.code,
+      detail: err.detail,
+      hint: err.hint
+    });
     return false;
   }
 }
