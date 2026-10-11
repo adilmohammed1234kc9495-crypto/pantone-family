@@ -55,7 +55,7 @@ class LoginActivity : AppCompatActivity() {
         val input = com.google.android.material.textfield.TextInputEditText(this).apply {
             setText(currentUrl)
             setSelection(currentUrl.length)
-            hint = "https://fam.pantone.com/api/v1/"
+            hint = "https://pantone-family.onrender.com/api/v1/"
         }
 
         val container = android.widget.FrameLayout(this).apply {
@@ -66,7 +66,7 @@ class LoginActivity : AppCompatActivity() {
 
         com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
             .setTitle("Server Environment")
-            .setMessage("Production API URL: https://fam.pantone.com/api/v1/\nEnter custom server URL or select an environment profile:")
+            .setMessage("Production API URL: https://pantone-family.onrender.com/api/v1/\nEnter custom server URL or select an environment profile:")
             .setView(container)
             .setPositiveButton("Save") { _, _ ->
                 var newUrl = input.text?.toString()?.trim().orEmpty()

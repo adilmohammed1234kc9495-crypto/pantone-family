@@ -52,7 +52,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            buildConfigField("String", "API_BASE_URL", "\"https://fam.pantone.com/api/v1/\"")
+            buildConfigField("String", "API_BASE_URL", "\"https://pantone-family.onrender.com/api/v1/\"")
             buildConfigField("String", "ENV_NAME", "\"production\"")
             buildConfigField("Boolean", "DEBUG_LOGGING", "false")
         }
