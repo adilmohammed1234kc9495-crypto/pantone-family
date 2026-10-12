@@ -26,8 +26,11 @@ export class LocationsService {
   async createLocation(data: {
     companyId?: string;
     branchId?: string | null;
-    building: string;
+    code?: string | null;
+    name?: string | null;
+    building?: string | null;
     floor?: string | null;
+    room?: string | null;
     roomNumber?: string | null;
     description?: string | null;
   }, user: AuthUser): Promise<LocationRow> {
@@ -51,9 +54,11 @@ export class LocationsService {
     const created = await locationsRepository.create({
       companyId: targetCompanyId,
       branchId: data.branchId || null,
-      building: data.building.trim(),
+      code: data.code?.trim() || null,
+      name: data.name?.trim() || data.building?.trim() || "Location",
+      building: data.building?.trim() || data.name?.trim() || "Main Facility",
       floor: data.floor || null,
-      roomNumber: data.roomNumber || null,
+      roomNumber: data.roomNumber || data.room || null,
       description: data.description || null,
     });
 
@@ -68,8 +73,11 @@ export class LocationsService {
 
   async updateLocation(id: string, data: {
     branchId?: string | null;
-    building?: string;
+    code?: string | null;
+    name?: string | null;
+    building?: string | null;
     floor?: string | null;
+    room?: string | null;
     roomNumber?: string | null;
     description?: string | null;
   }, user: AuthUser): Promise<LocationRow> {
@@ -85,7 +93,15 @@ export class LocationsService {
       }
     }
 
-    const updated = await locationsRepository.update(id, data);
+    const updated = await locationsRepository.update(id, {
+      branchId: data.branchId,
+      code: data.code?.trim() || null,
+      name: data.name?.trim() || null,
+      building: data.building?.trim() || (data.name?.trim() ? data.name.trim() : undefined),
+      floor: data.floor,
+      roomNumber: data.roomNumber !== undefined ? data.roomNumber : (data.room !== undefined ? data.room : undefined),
+      description: data.description,
+    });
 
     // Audit log
     await query(`

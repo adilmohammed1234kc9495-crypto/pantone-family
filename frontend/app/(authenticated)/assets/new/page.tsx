@@ -16,6 +16,8 @@ import {
   Calculator,
   AlertCircle,
   CheckCircle2,
+  RefreshCw,
+  FolderTree,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -42,16 +44,20 @@ interface DepartmentOption {
 
 interface LocationOption {
   id: string;
-  name: string;
-  code: string;
-  branch_id: string;
+  name?: string;
+  code?: string;
+  building?: string;
+  floor?: string;
+  room?: string;
+  room_number?: string;
+  branch_id?: string;
 }
 
 interface CategoryOption {
   id: string;
   name: string;
   code: string;
-  company_id: string;
+  company_id: string | null;
   depreciation_method: string;
   depreciation_rate_percent: number;
   useful_life_months: number;
@@ -76,8 +82,10 @@ export default function NewAssetPage() {
   const [vendors, setVendors] = useState<VendorOption[]>([]);
 
   const [isLoadingDropdowns, setIsLoadingDropdowns] = useState(true);
+  const [isLoadingSubs, setIsLoadingSubs] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Form State
   const [companyId, setCompanyId] = useState<string>("");
@@ -109,25 +117,34 @@ export default function NewAssetPage() {
     new Date().toISOString().split("T")[0]
   );
 
-  // Load initial dropdowns
-  const loadMasterData = useCallback(async () => {
+  // Load master data with tenant scoping
+  const loadMasterData = useCallback(async (targetCompanyId?: string) => {
     setIsLoadingDropdowns(true);
+    setLoadError(null);
     try {
-      if (user?.isCommonAdmin) {
+      let activeCompany = targetCompanyId || companyId;
+
+      if (user?.isCommonAdmin && !activeCompany) {
         const compRes = await apiClient.get<any>("/companies");
         const compList = compRes?.companies || compRes?.data?.companies || (Array.isArray(compRes) ? compRes : []);
         setCompanies(compList);
         if (compList.length > 0) {
-          setCompanyId((prev) => prev || compList[0].id);
+          activeCompany = compList[0].id;
+          setCompanyId(activeCompany);
         }
-      } else if (user?.companyId) {
-        setCompanyId(user.companyId);
+      } else if (!user?.isCommonAdmin && user?.companyId) {
+        activeCompany = user.companyId;
+        setCompanyId(activeCompany);
       }
 
+      const branchQuery = activeCompany ? `?limit=100&companyId=${activeCompany}` : "?limit=100";
+      const catQuery = activeCompany ? `?limit=100&companyId=${activeCompany}` : "?limit=100";
+      const vendorQuery = activeCompany ? `?limit=100&companyId=${activeCompany}` : "?limit=100";
+
       const [branchRes, catRes, vendorRes] = await Promise.all([
-        apiClient.get<any>("/branches?limit=100"),
-        apiClient.get<any>("/categories?limit=100"),
-        apiClient.get<any>("/vendors?limit=100"),
+        apiClient.get<any>(`/branches${branchQuery}`),
+        apiClient.get<any>(`/categories${catQuery}`),
+        apiClient.get<any>(`/vendors${vendorQuery}`),
       ]);
 
       const bList = branchRes?.branches || branchRes?.items || [];
@@ -138,19 +155,31 @@ export default function NewAssetPage() {
       setCategories(cList);
       setVendors(vList);
 
-      if (bList.length > 0) setBranchId(bList[0].id);
-      if (cList.length > 0) {
-        setCategoryId(cList[0].id);
-        setDepreciationMethod(cList[0].depreciation_method || "STRAIGHT_LINE");
-        setDepreciationRatePercent(Number(cList[0].depreciation_rate_percent) || 20);
-        setUsefulLifeMonths(Number(cList[0].useful_life_months) || 60);
+      // Auto-select initial branch
+      if (bList.length > 0) {
+        setBranchId(bList[0].id);
+      } else {
+        setBranchId("");
+        setDepartments([]);
+        setLocations([]);
       }
-    } catch {
-      // Ignore
+
+      // Auto-select initial category & apply defaults
+      if (cList.length > 0) {
+        const firstCat = cList[0];
+        setCategoryId(firstCat.id);
+        setDepreciationMethod(firstCat.depreciation_method || "STRAIGHT_LINE");
+        setDepreciationRatePercent(Number(firstCat.depreciation_rate_percent) || 20);
+        setUsefulLifeMonths(Number(firstCat.useful_life_months) || 60);
+      } else {
+        setCategoryId("");
+      }
+    } catch (err: any) {
+      setLoadError(err.message || "Failed to load master dropdown data");
     } finally {
       setIsLoadingDropdowns(false);
     }
-  }, [user]);
+  }, [user, companyId]);
 
   useEffect(() => {
     loadMasterData();
@@ -158,9 +187,16 @@ export default function NewAssetPage() {
 
   // Load departments & locations when branch changes
   useEffect(() => {
-    if (!branchId) return;
+    if (!branchId) {
+      setDepartments([]);
+      setLocations([]);
+      setDepartmentId("");
+      setLocationId("");
+      return;
+    }
 
     const loadBranchSubs = async () => {
+      setIsLoadingSubs(true);
       try {
         const [deptRes, locRes] = await Promise.all([
           apiClient.get<any>(`/departments?branchId=${branchId}&limit=100`),
@@ -173,11 +209,24 @@ export default function NewAssetPage() {
         setDepartmentId(dList[0]?.id || "");
         setLocationId(lList[0]?.id || "");
       } catch {
-        // Ignore
+        // Fallback gracefully
+      } finally {
+        setIsLoadingSubs(false);
       }
     };
     loadBranchSubs();
   }, [branchId]);
+
+  // Handle Common Admin switching company
+  const handleCompanyChange = async (newCompanyId: string) => {
+    setCompanyId(newCompanyId);
+    setBranchId("");
+    setDepartmentId("");
+    setLocationId("");
+    setVendorId("");
+    setCategoryId("");
+    await loadMasterData(newCompanyId);
+  };
 
   // When category changes, inherit depreciation defaults
   const handleCategoryChange = (catId: string) => {
@@ -217,7 +266,7 @@ export default function NewAssetPage() {
       return;
     }
     if (!categoryId) {
-      setError("Category selection is required.");
+      setError("Asset Category selection is required. Please select or create a category.");
       return;
     }
 
@@ -256,6 +305,8 @@ export default function NewAssetPage() {
     }
   };
 
+  const selectedCategoryObj = categories.find((c) => c.id === categoryId);
+
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-12">
       {/* Page Header */}
@@ -269,6 +320,26 @@ export default function NewAssetPage() {
         ]}
       />
 
+      {/* Critical Load Error Alert */}
+      {loadError && (
+        <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 flex items-center justify-between gap-3 text-sm">
+          <div className="flex items-center gap-2.5">
+            <AlertCircle className="w-5 h-5 flex-shrink-0 text-amber-600" />
+            <span>{loadError}</span>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => loadMasterData()}
+            className="flex items-center gap-1.5"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Retry</span>
+          </Button>
+        </div>
+      )}
+
+      {/* Form Submission Error Alert */}
       {error && (
         <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 flex items-center gap-3 text-sm">
           <AlertCircle className="w-5 h-5 flex-shrink-0 text-rose-600" />
@@ -291,7 +362,7 @@ export default function NewAssetPage() {
               </label>
               <select
                 value={companyId}
-                onChange={(e) => setCompanyId(e.target.value)}
+                onChange={(e) => handleCompanyChange(e.target.value)}
                 className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
                 required
               >
@@ -320,25 +391,61 @@ export default function NewAssetPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">
-                Asset Category *
+              <label className="block text-xs font-semibold uppercase text-slate-600 mb-1 flex items-center justify-between">
+                <span>Asset Category *</span>
+                {categories.length > 0 && (
+                  <span className="text-[11px] text-teal-700 font-normal">
+                    {categories.length} available
+                  </span>
+                )}
               </label>
-              <select
-                value={categoryId}
-                onChange={(e) => handleCategoryChange(e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                required
-              >
-                <option value="">Select Category</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.code})
-                  </option>
-                ))}
-              </select>
-              <span className="text-[11px] text-slate-400 mt-1 block">
-                Selecting a category auto-configures depreciation rate and life
-              </span>
+
+              {isLoadingDropdowns ? (
+                <div className="flex items-center gap-2.5 px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 text-xs text-slate-500">
+                  <div className="w-3.5 h-3.5 border-2 border-teal-600 border-t-transparent rounded-full animate-spin" />
+                  <span>Loading categories from database...</span>
+                </div>
+              ) : categories.length === 0 ? (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 space-y-1">
+                  <div className="font-semibold flex items-center gap-1.5">
+                    <AlertCircle className="w-4 h-4 text-amber-600" />
+                    No Asset Categories Configured
+                  </div>
+                  <p>You cannot register an asset without an assigned category.</p>
+                  <Link
+                    href="/categories"
+                    className="inline-flex items-center gap-1 text-teal-700 hover:text-teal-800 font-medium underline mt-1"
+                  >
+                    <FolderTree className="w-3.5 h-3.5" />
+                    Configure Categories in Master &rarr;
+                  </Link>
+                </div>
+              ) : (
+                <select
+                  value={categoryId}
+                  onChange={(e) => handleCategoryChange(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  required
+                >
+                  <option value="">Select Category</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.code} — {c.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {selectedCategoryObj && (
+                <div className="mt-1.5 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded text-[11px] text-slate-600 flex items-center justify-between">
+                  <span>
+                    Defaults: <strong className="text-slate-800">{selectedCategoryObj.depreciation_method}</strong> ({selectedCategoryObj.depreciation_rate_percent}% / {selectedCategoryObj.useful_life_months} mos)
+                  </span>
+                  <Link href="/categories" className="text-teal-600 hover:underline">
+                    Edit Category
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
 
@@ -413,12 +520,18 @@ export default function NewAssetPage() {
                 className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
                 required
               >
-                <option value="">Select Branch</option>
-                {branches.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name} ({b.code})
-                  </option>
-                ))}
+                {branches.length === 0 ? (
+                  <option value="">No branches configured</option>
+                ) : (
+                  <>
+                    <option value="">Select Branch</option>
+                    {branches.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name} ({b.code})
+                      </option>
+                    ))}
+                  </>
+                )}
               </select>
             </div>
 
@@ -430,6 +543,7 @@ export default function NewAssetPage() {
                 value={departmentId}
                 onChange={(e) => setDepartmentId(e.target.value)}
                 className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                disabled={isLoadingSubs}
               >
                 <option value="">-- Unassigned --</option>
                 {departments.map((d) => (
@@ -448,13 +562,22 @@ export default function NewAssetPage() {
                 value={locationId}
                 onChange={(e) => setLocationId(e.target.value)}
                 className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                disabled={isLoadingSubs}
               >
                 <option value="">-- Unassigned --</option>
-                {locations.map((loc) => (
-                  <option key={loc.id} value={loc.id}>
-                    {loc.name} ({loc.code})
-                  </option>
-                ))}
+                {locations.map((loc) => {
+                  const labelParts = [
+                    loc.name || loc.building,
+                    loc.floor,
+                    loc.room || loc.room_number,
+                  ].filter(Boolean);
+                  const label = labelParts.length > 0 ? labelParts.join(" • ") : "Location";
+                  return (
+                    <option key={loc.id} value={loc.id}>
+                      {label} {loc.code ? `(${loc.code})` : ""}
+                    </option>
+                  );
+                })}
               </select>
             </div>
           </div>
@@ -682,7 +805,7 @@ export default function NewAssetPage() {
           </Link>
           <Button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || categories.length === 0}
             variant="primary"
             size="md"
           >

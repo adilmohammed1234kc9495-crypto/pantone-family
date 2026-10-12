@@ -13,16 +13,25 @@ locationsRouter.use(authenticate, resolveTenantContext);
 const createLocationSchema = z.object({
   companyId: z.string().uuid().optional(),
   branchId: z.string().uuid().nullable().optional(),
-  building: z.string().min(1).max(100),
+  code: z.string().max(50).nullable().optional(),
+  name: z.string().max(100).nullable().optional(),
+  building: z.string().max(100).nullable().optional(),
   floor: z.string().nullable().optional(),
+  room: z.string().nullable().optional(),
   roomNumber: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
+}).refine((d) => Boolean(d.building?.trim() || d.name?.trim()), {
+  message: "Either building or name is required",
+  path: ["name"],
 });
 
 const updateLocationSchema = z.object({
   branchId: z.string().uuid().nullable().optional(),
-  building: z.string().min(1).max(100).optional(),
+  code: z.string().max(50).nullable().optional(),
+  name: z.string().max(100).nullable().optional(),
+  building: z.string().max(100).nullable().optional(),
   floor: z.string().nullable().optional(),
+  room: z.string().nullable().optional(),
   roomNumber: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
 });
