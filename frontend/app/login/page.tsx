@@ -92,7 +92,7 @@ export default function LoginPage() {
                   required
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="e.g. aslam, apparels, garments"
+                  placeholder="Enter username or email"
                   className="block w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                 />
               </div>
@@ -141,55 +141,7 @@ export default function LoginPage() {
             </div>
           </form>
 
-          {/* Quick Sign-In Accounts */}
-          <div className="mt-6 pt-5 border-t border-slate-100">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-center mb-3">
-              Quick Fill Login
-            </p>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setUsername("aslam");
-                  setPassword("pantone123");
-                  setError(null);
-                }}
-                className="px-3 py-2 text-xs font-medium text-slate-700 bg-slate-50 hover:bg-teal-50 hover:text-teal-700 border border-slate-200 rounded-lg transition-colors text-center"
-              >
-                <div className="font-semibold text-slate-900">Aslam</div>
-                <div className="text-[10px] text-slate-500">Common Admin</div>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setUsername("apparels");
-                  setPassword("pantone123");
-                  setError(null);
-                }}
-                className="px-3 py-2 text-xs font-medium text-slate-700 bg-slate-50 hover:bg-teal-50 hover:text-teal-700 border border-slate-200 rounded-lg transition-colors text-center"
-              >
-                <div className="font-semibold text-slate-900">Apparels</div>
-                <div className="text-[10px] text-slate-500">Pantone Apparels</div>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setUsername("garments");
-                  setPassword("pantone123");
-                  setError(null);
-                }}
-                className="px-3 py-2 text-xs font-medium text-slate-700 bg-slate-50 hover:bg-teal-50 hover:text-teal-700 border border-slate-200 rounded-lg transition-colors text-center"
-              >
-                <div className="font-semibold text-slate-900">Garments</div>
-                <div className="text-[10px] text-slate-500">Pantone Garments</div>
-              </button>
-            </div>
-            <p className="mt-2.5 text-[11px] text-center text-slate-400">
-              Default password: <span className="font-mono font-medium text-slate-600">pantone123</span>
-            </p>
-          </div>
-
-          <div className="mt-5 pt-4 border-t border-slate-100 text-center">
+          <div className="mt-6 pt-5 border-t border-slate-100 text-center">
             <p className="text-xs text-slate-500">
               Pantone Apparels &bull; Pantone Garments &bull; Common Admin Authority
             </p>
