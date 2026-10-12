@@ -26,9 +26,9 @@ const envSchema = z.object({
   JWT_REFRESH_EXPIRES_IN: z.string().default("7d"),
 
   // Seed Passwords (Dev / initial setup)
-  SEED_COMMON_ADMIN_PASSWORD: z.string().min(8).default("PantoneAdmin#2026!"),
-  SEED_APPARELS_ADMIN_PASSWORD: z.string().min(8).default("ApparelsAdmin#2026!"),
-  SEED_GARMENTS_ADMIN_PASSWORD: z.string().min(8).default("GarmentsAdmin#2026!"),
+  SEED_COMMON_ADMIN_PASSWORD: z.string().min(8).default("pantone123"),
+  SEED_APPARELS_ADMIN_PASSWORD: z.string().min(8).default("pantone123"),
+  SEED_GARMENTS_ADMIN_PASSWORD: z.string().min(8).default("pantone123"),
 
   // Network & Binding
   HOST: z.string().default("0.0.0.0"),

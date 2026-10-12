@@ -200,12 +200,19 @@ export async function runSeed(): Promise<void> {
   `, [garmentsCompanyId, garBranchId]);
   logger.info("Seeded branches and departments for both companies.");
 
-  // 5. Seed Users
+  // 5. Seed Users (Simple Pantone credentials)
   const [commonAdminPassHash, apparelsAdminPassHash, garmentsAdminPassHash] = await Promise.all([
-    hashPassword(env.SEED_COMMON_ADMIN_PASSWORD),
-    hashPassword(env.SEED_APPARELS_ADMIN_PASSWORD),
-    hashPassword(env.SEED_GARMENTS_ADMIN_PASSWORD),
+    hashPassword(env.SEED_COMMON_ADMIN_PASSWORD || "pantone123"),
+    hashPassword(env.SEED_APPARELS_ADMIN_PASSWORD || "pantone123"),
+    hashPassword(env.SEED_GARMENTS_ADMIN_PASSWORD || "pantone123"),
   ]);
+
+  // 5a. Common Admin (Aslam & common_admin)
+  await query(`
+    INSERT INTO users (company_id, username, email, password_hash, role_id, is_active)
+    VALUES (NULL, 'aslam', 'aslam@pantone.com', $1, $2, true)
+    ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash, role_id = EXCLUDED.role_id
+  `, [commonAdminPassHash, commonAdminRoleId]);
 
   await query(`
     INSERT INTO users (company_id, username, email, password_hash, role_id, is_active)
@@ -213,18 +220,33 @@ export async function runSeed(): Promise<void> {
     ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash, role_id = EXCLUDED.role_id
   `, [commonAdminPassHash, commonAdminRoleId]);
 
+  // 5b. Pantone Apparels Admin (apparels & apparels_admin)
+  await query(`
+    INSERT INTO users (company_id, username, email, password_hash, role_id, is_active)
+    VALUES ($1, 'apparels', 'apparels@pantone.com', $2, $3, true)
+    ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash, role_id = EXCLUDED.role_id
+  `, [apparelsCompanyId, apparelsAdminPassHash, apparelsRoles["COMPANY_ADMIN"]]);
+
   await query(`
     INSERT INTO users (company_id, username, email, password_hash, role_id, is_active)
     VALUES ($1, 'apparels_admin', 'admin@pantone-apparels.com', $2, $3, true)
     ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash, role_id = EXCLUDED.role_id
   `, [apparelsCompanyId, apparelsAdminPassHash, apparelsRoles["COMPANY_ADMIN"]]);
 
+  // 5c. Pantone Garments Admin (garments & garments_admin)
+  await query(`
+    INSERT INTO users (company_id, username, email, password_hash, role_id, is_active)
+    VALUES ($1, 'garments', 'garments@pantone.com', $2, $3, true)
+    ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash, role_id = EXCLUDED.role_id
+  `, [garmentsCompanyId, garmentsAdminPassHash, garmentsRoles["COMPANY_ADMIN"]]);
+
   await query(`
     INSERT INTO users (company_id, username, email, password_hash, role_id, is_active)
     VALUES ($1, 'garments_admin', 'admin@pantone-garments.com', $2, $3, true)
     ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash, role_id = EXCLUDED.role_id
   `, [garmentsCompanyId, garmentsAdminPassHash, garmentsRoles["COMPANY_ADMIN"]]);
-  logger.info("Seeded administrator accounts for Common Admin, Pantone Apparels, and Pantone Garments.");
+
+  logger.info("Seeded administrator accounts for Aslam (Common Admin), Pantone Apparels, and Pantone Garments with simplified credentials.");
 
   // 6. Seed Master Asset Categories (Root & Subcategories)
   const rootCategories = [
