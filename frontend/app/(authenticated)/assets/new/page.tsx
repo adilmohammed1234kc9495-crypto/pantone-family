@@ -85,6 +85,7 @@ export default function NewAssetPage() {
   const [isLoadingSubs, setIsLoadingSubs] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Form State
@@ -257,6 +258,10 @@ export default function NewAssetPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (user?.isCommonAdmin && !companyId) {
+      setError("Company Authority is required. Please select a company.");
+      return;
+    }
     if (!name.trim()) {
       setError("Asset name is required.");
       return;
@@ -272,35 +277,46 @@ export default function NewAssetPage() {
 
     setIsSubmitting(true);
     setError(null);
+    setFieldErrors({});
+
     try {
       const payload: Record<string, unknown> = {
-        companyId: user?.isCommonAdmin ? companyId : undefined,
-        branchId,
+        companyId: user?.isCommonAdmin ? (companyId || undefined) : undefined,
+        branchId: branchId || undefined,
         departmentId: departmentId || undefined,
         locationId: locationId || undefined,
-        categoryId,
+        categoryId: categoryId || undefined,
         vendorId: vendorId || undefined,
         assetTag: assetTag.trim() || undefined,
         name: name.trim(),
         description: description.trim() || undefined,
         serialNumber: serialNumber.trim() || undefined,
         modelNumber: modelNumber.trim() || undefined,
-        purchaseDate,
-        purchaseCost: Number(purchaseCost),
-        currency,
-        salvageValue: Number(salvageValue),
-        condition,
-        depreciationMethod,
-        depreciationRatePercent: Number(depreciationRatePercent),
-        usefulLifeMonths: Number(usefulLifeMonths),
-        depreciationStartDate: depreciationStartDate || purchaseDate,
+        purchaseDate: purchaseDate || undefined,
+        purchaseCost: Number(purchaseCost) || 0,
+        currency: currency || "USD",
+        salvageValue: Number(salvageValue) || 0,
+        condition: condition || "NEW",
+        depreciationMethod: depreciationMethod || "STRAIGHT_LINE",
+        depreciationRatePercent: Number(depreciationRatePercent) || 0,
+        usefulLifeMonths: Math.round(Number(usefulLifeMonths)) || 60,
+        depreciationStartDate: depreciationStartDate || purchaseDate || undefined,
       };
 
       const res = await apiClient.post<any>("/assets", payload);
       const createdAsset = res?.asset || res?.data || res;
       router.push(createdAsset?.id ? `/assets/${createdAsset.id}` : "/assets");
     } catch (err: any) {
-      setError(err.message || "Failed to register asset");
+      if (err.data?.error?.details?.fieldErrors) {
+        const fErrors: Record<string, string[]> = err.data.error.details.fieldErrors;
+        setFieldErrors(fErrors);
+        const detailedMsg = Object.entries(fErrors)
+          .map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs.join(", ") : msgs}`)
+          .join(" • ");
+        setError(`Validation error: ${detailedMsg}`);
+      } else {
+        setError(err.message || "Failed to register asset");
+      }
       setIsSubmitting(false);
     }
   };
@@ -341,9 +357,20 @@ export default function NewAssetPage() {
 
       {/* Form Submission Error Alert */}
       {error && (
-        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 flex items-center gap-3 text-sm">
-          <AlertCircle className="w-5 h-5 flex-shrink-0 text-rose-600" />
-          <span>{error}</span>
+        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 flex flex-col gap-2 text-sm shadow-sm">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 flex-shrink-0 text-rose-600" />
+            <span className="font-semibold">{error}</span>
+          </div>
+          {Object.keys(fieldErrors).length > 0 && (
+            <ul className="list-disc list-inside text-xs pl-8 space-y-1 text-rose-600">
+              {Object.entries(fieldErrors).map(([field, msgs]) => (
+                <li key={field}>
+                  <strong className="capitalize">{field}</strong>: {Array.isArray(msgs) ? msgs.join(", ") : msgs}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 
@@ -363,15 +390,19 @@ export default function NewAssetPage() {
               <select
                 value={companyId}
                 onChange={(e) => handleCompanyChange(e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className={`w-full bg-white border ${fieldErrors.companyId ? "border-rose-500 focus:ring-rose-500" : "border-slate-300 focus:ring-teal-500"} rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2`}
                 required
               >
+                <option value="">Select Target Company Authority</option>
                 {companies.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name} ({c.code})
                   </option>
                 ))}
               </select>
+              {fieldErrors.companyId && (
+                <span className="text-xs text-rose-600 mt-1 block">{fieldErrors.companyId[0]}</span>
+              )}
             </div>
           )}
 
@@ -385,9 +416,12 @@ export default function NewAssetPage() {
                 placeholder="e.g. Brother Lockstitch S-7200C"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className={`w-full bg-white border ${fieldErrors.name ? "border-rose-500 focus:ring-rose-500" : "border-slate-300 focus:ring-teal-500"} rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2`}
                 required
               />
+              {fieldErrors.name && (
+                <span className="text-xs text-rose-600 mt-1 block">{fieldErrors.name[0]}</span>
+              )}
             </div>
 
             <div>
@@ -424,7 +458,7 @@ export default function NewAssetPage() {
                 <select
                   value={categoryId}
                   onChange={(e) => handleCategoryChange(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  className={`w-full bg-white border ${fieldErrors.categoryId ? "border-rose-500 focus:ring-rose-500" : "border-slate-300 focus:ring-teal-500"} rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2`}
                   required
                 >
                   <option value="">Select Category</option>
@@ -434,6 +468,9 @@ export default function NewAssetPage() {
                     </option>
                   ))}
                 </select>
+              )}
+              {fieldErrors.categoryId && (
+                <span className="text-xs text-rose-600 mt-1 block">{fieldErrors.categoryId[0]}</span>
               )}
 
               {selectedCategoryObj && (
@@ -459,8 +496,11 @@ export default function NewAssetPage() {
                 placeholder="AST-2026-XXXX"
                 value={assetTag}
                 onChange={(e) => setAssetTag(e.target.value.toUpperCase())}
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 font-mono uppercase focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className={`w-full bg-white border ${fieldErrors.assetTag ? "border-rose-500 focus:ring-rose-500" : "border-slate-300 focus:ring-teal-500"} rounded-lg px-3 py-2 text-sm text-slate-900 font-mono uppercase focus:outline-none focus:ring-2`}
               />
+              {fieldErrors.assetTag && (
+                <span className="text-xs text-rose-600 mt-1 block">{fieldErrors.assetTag[0]}</span>
+              )}
             </div>
             <div>
               <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">
@@ -517,7 +557,7 @@ export default function NewAssetPage() {
               <select
                 value={branchId}
                 onChange={(e) => setBranchId(e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className={`w-full bg-white border ${fieldErrors.branchId ? "border-rose-500 focus:ring-rose-500" : "border-slate-300 focus:ring-teal-500"} rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2`}
                 required
               >
                 {branches.length === 0 ? (
@@ -533,6 +573,9 @@ export default function NewAssetPage() {
                   </>
                 )}
               </select>
+              {fieldErrors.branchId && (
+                <span className="text-xs text-rose-600 mt-1 block">{fieldErrors.branchId[0]}</span>
+              )}
             </div>
 
             <div>
@@ -616,14 +659,18 @@ export default function NewAssetPage() {
               <select
                 value={condition}
                 onChange={(e) => setCondition(e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className={`w-full bg-white border ${fieldErrors.condition ? "border-rose-500 focus:ring-rose-500" : "border-slate-300 focus:ring-teal-500"} rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2`}
               >
-                <option value="NEW">New (Unused)</option>
+                <option value="NEW">New (Brand New / Unused)</option>
+                <option value="EXCELLENT">Excellent (Like New)</option>
                 <option value="GOOD">Good (Operational)</option>
-                <option value="FAIR">Fair (Minor wear)</option>
-                <option value="POOR">Poor (Needs repair)</option>
-                <option value="SCRAP">Scrap</option>
+                <option value="FAIR">Fair (Minor Wear)</option>
+                <option value="DAMAGED">Damaged (Needs Repair / Poor)</option>
+                <option value="UNUSABLE">Unusable (Scrap / Beyond Repair)</option>
               </select>
+              {fieldErrors.condition && (
+                <span className="text-xs text-rose-600 mt-1 block">{fieldErrors.condition[0]}</span>
+              )}
             </div>
           </div>
 
@@ -654,9 +701,12 @@ export default function NewAssetPage() {
                 min={0}
                 value={purchaseCost}
                 onChange={(e) => setPurchaseCost(Number(e.target.value))}
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className={`w-full bg-white border ${fieldErrors.purchaseCost ? "border-rose-500 focus:ring-rose-500" : "border-slate-300 focus:ring-teal-500"} rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2`}
                 required
               />
+              {fieldErrors.purchaseCost && (
+                <span className="text-xs text-rose-600 mt-1 block">{fieldErrors.purchaseCost[0]}</span>
+              )}
             </div>
 
             <div>
@@ -708,10 +758,7 @@ export default function NewAssetPage() {
                 onChange={(e) => setDepreciationMethod(e.target.value)}
                 className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
               >
-                <option value="STRAIGHT_LINE">Straight Line (SLM)</option>
-                <option value="WRITTEN_DOWN_VALUE">Written Down Value (WDV)</option>
-                <option value="UNITS_OF_PRODUCTION">Units of Production</option>
-                <option value="SUM_OF_YEARS_DIGITS">Sum of Years Digits</option>
+                <option value="STRAIGHT_LINE">Straight Line (SLM) — Active Standard</option>
               </select>
             </div>
 
@@ -725,9 +772,12 @@ export default function NewAssetPage() {
                 max={600}
                 value={usefulLifeMonths}
                 onChange={(e) => setUsefulLifeMonths(Number(e.target.value))}
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className={`w-full bg-white border ${fieldErrors.usefulLifeMonths ? "border-rose-500 focus:ring-rose-500" : "border-slate-300 focus:ring-teal-500"} rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2`}
                 required
               />
+              {fieldErrors.usefulLifeMonths && (
+                <span className="text-xs text-rose-600 mt-1 block">{fieldErrors.usefulLifeMonths[0]}</span>
+              )}
             </div>
 
             <div>
@@ -741,9 +791,12 @@ export default function NewAssetPage() {
                 max={100}
                 value={depreciationRatePercent}
                 onChange={(e) => setDepreciationRatePercent(Number(e.target.value))}
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className={`w-full bg-white border ${fieldErrors.depreciationRatePercent ? "border-rose-500 focus:ring-rose-500" : "border-slate-300 focus:ring-teal-500"} rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2`}
                 required
               />
+              {fieldErrors.depreciationRatePercent && (
+                <span className="text-xs text-rose-600 mt-1 block">{fieldErrors.depreciationRatePercent[0]}</span>
+              )}
             </div>
 
             <div>

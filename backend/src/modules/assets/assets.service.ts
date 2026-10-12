@@ -82,9 +82,15 @@ export class AssetsService {
   }
 
   async createAsset(data: CreateAssetInput, user: AuthUser): Promise<AssetRow> {
-    const targetCompanyId = user.isCommonAdmin ? (data.companyId || user.companyId) : user.companyId;
+    let targetCompanyId = user.isCommonAdmin ? (data.companyId || user.companyId) : user.companyId;
+    if (!targetCompanyId && data.branchId) {
+      const branch = await branchesRepository.findById(data.branchId);
+      if (branch) {
+        targetCompanyId = branch.company_id;
+      }
+    }
     if (!targetCompanyId) {
-      throw new ConflictError("Company ID is required to register an asset");
+      throw new ConflictError("Company ID is required to register an asset. Please select a company.");
     }
     assertCompanyAccess(user, targetCompanyId);
 

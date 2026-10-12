@@ -18,56 +18,116 @@ export const assetsRouter = Router();
 
 assetsRouter.use(authenticate, resolveTenantContext);
 
+const optionalUuid = z.preprocess(
+  (val) => (val === "" || val === undefined || val === null ? null : val),
+  z.string().uuid().nullable().optional()
+);
+
+const optionalString = z.preprocess(
+  (val) => (typeof val === "string" && val.trim() === "" ? null : typeof val === "string" ? val.trim() : val),
+  z.string().nullable().optional()
+);
+
+const optionalTag = z.preprocess(
+  (val) => (typeof val === "string" && val.trim() === "" ? undefined : typeof val === "string" ? val.trim() : val),
+  z.string().min(1).max(100).optional()
+);
+
+const conditionSchema = z.preprocess(
+  (val) => {
+    if (typeof val === "string") {
+      const upper = val.toUpperCase().trim();
+      if (upper === "POOR") return "DAMAGED";
+      if (upper === "SCRAP") return "UNUSABLE";
+      return upper;
+    }
+    return val;
+  },
+  z.enum(["NEW", "EXCELLENT", "GOOD", "FAIR", "DAMAGED", "UNUSABLE"]).optional()
+);
+
 const createAssetSchema = z.object({
-  companyId: z.string().uuid().optional(),
-  branchId: z.string().uuid().nullable().optional(),
-  departmentId: z.string().uuid().nullable().optional(),
-  locationId: z.string().uuid().nullable().optional(),
-  categoryId: z.string().uuid(),
-  vendorId: z.string().uuid().nullable().optional(),
-  assetTag: z.string().min(2).max(100).optional(),
-  barcode: z.string().min(2).max(100).optional(),
-  qrCode: z.string().min(2).max(100).optional(),
-  name: z.string().min(2).max(255),
-  subcategory: z.string().nullable().optional(),
-  description: z.string().nullable().optional(),
-  serialNumber: z.string().nullable().optional(),
-  modelNumber: z.string().nullable().optional(),
-  manufacturer: z.string().nullable().optional(),
-  purchaseDate: z.string().nullable().optional(),
-  purchaseCost: z.number().min(0),
-  invoiceNumber: z.string().nullable().optional(),
-  warrantyStart: z.string().nullable().optional(),
-  warrantyEnd: z.string().nullable().optional(),
+  companyId: z.preprocess(
+    (val) => (val === "" || val === undefined || val === null ? undefined : val),
+    z.string().uuid().optional()
+  ),
+  branchId: optionalUuid,
+  departmentId: optionalUuid,
+  locationId: optionalUuid,
+  categoryId: z.string().uuid({ message: "Valid category ID is required" }),
+  vendorId: optionalUuid,
+  assetTag: optionalTag,
+  barcode: optionalTag,
+  qrCode: optionalTag,
+  name: z.preprocess(
+    (val) => (typeof val === "string" ? val.trim() : val),
+    z.string().min(1, { message: "Asset name must be at least 1 character" }).max(255)
+  ),
+  subcategory: optionalString,
+  description: optionalString,
+  serialNumber: optionalString,
+  modelNumber: optionalString,
+  manufacturer: optionalString,
+  purchaseDate: optionalString,
+  purchaseCost: z.preprocess(
+    (val) => (val === "" || val === undefined || val === null ? 0 : Number(val)),
+    z.number().min(0, { message: "Purchase cost must be a non-negative number" })
+  ),
+  currency: optionalString,
+  salvageValue: z.preprocess(
+    (val) => (val === "" || val === undefined || val === null ? 0 : Number(val)),
+    z.number().min(0).optional()
+  ),
+  invoiceNumber: optionalString,
+  warrantyStart: optionalString,
+  warrantyEnd: optionalString,
   status: z.enum([
     "AVAILABLE", "IN_STOCK", "ASSIGNED", "UNDER_MAINTENANCE",
     "DAMAGED", "LOST", "RETURNED", "TRANSFERRED", "RETIRED", "DISPOSED"
   ]).optional(),
-  condition: z.enum(["NEW", "EXCELLENT", "GOOD", "FAIR", "DAMAGED", "UNUSABLE"]).optional(),
-  photoUrl: z.string().nullable().optional(),
-  notes: z.string().nullable().optional(),
+  condition: conditionSchema,
+  photoUrl: optionalString,
+  notes: optionalString,
   depreciationMethod: z.string().optional(),
-  depreciationRatePercent: z.number().min(0).max(100).optional(),
-  usefulLifeMonths: z.number().int().min(1).optional(),
-  depreciationStartDate: z.string().nullable().optional(),
+  depreciationRatePercent: z.preprocess(
+    (val) => (val === "" || val === undefined || val === null ? undefined : Number(val)),
+    z.number().min(0).max(100).optional()
+  ),
+  usefulLifeMonths: z.preprocess(
+    (val) => (val === "" || val === undefined || val === null ? undefined : Math.round(Number(val))),
+    z.number().int().min(1).optional()
+  ),
+  depreciationStartDate: optionalString,
 });
 
 const updateAssetSchema = z.object({
-  name: z.string().min(2).max(255).optional(),
-  branchId: z.string().uuid().nullable().optional(),
-  departmentId: z.string().uuid().nullable().optional(),
-  locationId: z.string().uuid().nullable().optional(),
-  vendorId: z.string().uuid().nullable().optional(),
-  serialNumber: z.string().nullable().optional(),
-  modelNumber: z.string().nullable().optional(),
-  manufacturer: z.string().nullable().optional(),
-  condition: z.enum(["NEW", "EXCELLENT", "GOOD", "FAIR", "DAMAGED", "UNUSABLE"]).optional(),
-  notes: z.string().nullable().optional(),
-  description: z.string().nullable().optional(),
-  current_value: z.number().min(0).optional(),
+  name: z.preprocess(
+    (val) => (typeof val === "string" ? val.trim() : val),
+    z.string().min(1).max(255).optional()
+  ),
+  branchId: optionalUuid,
+  departmentId: optionalUuid,
+  locationId: optionalUuid,
+  vendorId: optionalUuid,
+  serialNumber: optionalString,
+  modelNumber: optionalString,
+  manufacturer: optionalString,
+  condition: conditionSchema,
+  notes: optionalString,
+  description: optionalString,
+  current_value: z.preprocess(
+    (val) => (val === "" || val === undefined || val === null ? undefined : Number(val)),
+    z.number().min(0).optional()
+  ),
   depreciationMethod: z.string().optional(),
-  depreciationRatePercent: z.number().min(0).max(100).optional(),
-  usefulLifeMonths: z.number().int().min(1).optional(),
+  depreciationRatePercent: z.preprocess(
+    (val) => (val === "" || val === undefined || val === null ? undefined : Number(val)),
+    z.number().min(0).max(100).optional()
+  ),
+  usefulLifeMonths: z.preprocess(
+    (val) => (val === "" || val === undefined || val === null ? undefined : Math.round(Number(val))),
+    z.number().int().min(1).optional()
+  ),
 });
 
 const addDocumentSchema = z.object({
